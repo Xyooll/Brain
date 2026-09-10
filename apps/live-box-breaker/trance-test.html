@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#04040b" />
+  <title>Live Box Breaker - Trance</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#f5f4ff;background:#04040b}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;touch-action:none;background:radial-gradient(circle at 50% 42%,#110c2a 0,#080713 35%,#03040a 76%,#010206 100%)}
+    canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+    #softVignette{position:fixed;inset:0;pointer-events:none;z-index:2;background:radial-gradient(circle at 50% 43%,transparent 25%,rgba(5,4,14,.18) 56%,rgba(0,0,0,.72) 100%)}
+    #hud{position:fixed;z-index:4;inset:0;pointer-events:none;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;justify-content:space-between}
+    .top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+    .panel{background:rgba(8,8,22,.58);border:1px solid rgba(154,142,255,.18);backdrop-filter:blur(9px);border-radius:16px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.26)}
+    .title{font-weight:900;font-size:18px;letter-spacing:.5px}.sub{font-size:11px;opacity:.64;margin-top:2px}
+    .stats{display:grid;grid-template-columns:repeat(3,auto);gap:12px;font-size:11px;text-align:center}.stats b{display:block;font-size:16px}
+    .progress{height:7px;background:rgba(255,255,255,.07);border-radius:999px;overflow:hidden;margin-top:9px}
+    #bar{height:100%;width:0;background:linear-gradient(90deg,#5e50ff,#9e67ff,#65d7ff);transition:width .2s linear;box-shadow:0 0 10px rgba(131,105,255,.35)}
+    #chargeLine{margin-top:7px;font-size:10px;opacity:.66;letter-spacing:.4px}
+    #event{align-self:center;margin-top:8px;max-width:90vw;text-align:center;font-weight:800;opacity:0;transform:translateY(-5px);transition:.4s ease}#event.show{opacity:.92;transform:none}
+    .controls{pointer-events:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    button{min-height:48px;border-radius:15px;padding:12px 7px;border:1px solid rgba(147,136,240,.19);background:rgba(14,15,38,.84);color:#f7f6ff;font-weight:850;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.22)}button:active{transform:scale(.97);background:rgba(24,26,58,.94)}
+    .wide{grid-column:span 2}.auto.on{background:rgba(26,48,59,.86)}
+    #fps{position:fixed;z-index:5;right:10px;bottom:calc(168px + env(safe-area-inset-bottom));font-size:10px;opacity:.32;pointer-events:none}
+    @media(min-width:720px){.controls{max-width:620px;align-self:center;width:100%}.title{font-size:22px}}
+  </style>
+</head>
+<body>
+  <div id="softVignette"></div>
+  <div id="hud"><div><div class="top"><div class="panel"><div class="title">LIVE BOX BREAKER</div><div class="sub" id="levelinfo">Slow-focus build</div><div class="progress"><div id="bar"></div></div><div id="chargeLine">FOCUS 0% · next pulse building</div></div><div class="panel stats"><span><b id="world">1</b>WORLD</span><span><b id="left">0</b>LEFT</span><span><b id="destroyed">0</b>BROKEN</span></div></div><div id="event" class="panel"></div></div><div class="controls"><button data-action="like">❤️ +100 Likes</button><button data-action="small">🎁 Small Gift</button><button data-action="medium">◉ Pulse Gift</button><button data-action="large">◎ Deep Pulse</button><button data-action="huge">✦ Core Gift</button><button id="auto" class="auto on">◌ Auto: ON</button><button id="reset" class="wide">↻ New World</button><button id="quality">⚙️ Quality: Auto</button></div></div>
+  <div id="fps"></div>
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js';
+    const $=id=>document.getElementById(id);
+    const ui={world:$('world'),left:$('left'),destroyed:$('destroyed'),bar:$('bar'),event:$('event'),auto:$('auto'),fps:$('fps'),quality:$('quality'),levelinfo:$('levelinfo'),chargeLine:$('chargeLine')};
+    const isLowEnd=(navigator.deviceMemory&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4);
+    const qualityModes=['Auto','Low','High'];
+    let qualityIndex=0,auto=true,level=1,alive=0,destroyed=0,total=0,W=18,H=14,D=12,spacing=1.03,boxes,states,hp,positions,radii,baseHue,pulseCharge=0,pulseVisual=0,eventTimer=0,last=performance.now(),angle=0,autoClock=0,fpsClock=0,frames=0,colorClock=0;
+    const queue=[],dummy=new THREE.Object3D(),tempColor=new THREE.Color();
+    const scene=new THREE.Scene();scene.background=new THREE.Color(0x03040a);
+    const camera=new THREE.PerspectiveCamera(49,innerWidth/innerHeight,.1,200);
+    const renderer=new THREE.WebGLRenderer({antialias:!isLowEnd,powerPreference:'high-performance'});renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NoToneMapping;document.body.prepend(renderer.domElement);
+    const starCount=isLowEnd?220:360,starPos=new Float32Array(starCount*3);for(let i=0;i<starCount;i++){const r=48+Math.random()*54,a=Math.random()*Math.PI*2,u=Math.random()*2-1,s=Math.sqrt(1-u*u);starPos[i*3]=Math.cos(a)*s*r;starPos[i*3+1]=u*r*.65;starPos[i*3+2]=Math.sin(a)*s*r}const starGeo=new THREE.BufferGeometry();starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));const stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0x7f77c7,size:.10,transparent:true,opacity:.34,depthWrite:false}));scene.add(stars);
+    const core=new THREE.Mesh(new THREE.SphereGeometry(.48,28,18),new THREE.MeshBasicMaterial({color:0xc8b5ff,transparent:true,opacity:.95}));scene.add(core);
+    const coreHalo=new THREE.Mesh(new THREE.RingGeometry(.7,.74,72),new THREE.MeshBasicMaterial({color:0x8d76ff,side:THREE.DoubleSide,transparent:true,opacity:.46,depthWrite:false}));coreHalo.position.z=.02;scene.add(coreHalo);
+    const rings=[];for(let i=0;i<2;i++){const ring=new THREE.Mesh(new THREE.TorusGeometry(9.2+i*3.1,.028,6,96),new THREE.MeshBasicMaterial({color:i?0x5fcfff:0x8f67ff,transparent:true,opacity:.18,depthWrite:false}));ring.rotation.x=Math.PI/2+(i?-.22:.18);scene.add(ring);rings.push(ring)}
+    const floor=new THREE.GridHelper(62,31,0x25204f,0x0e1120);floor.material.opacity=.25;floor.material.transparent=true;scene.add(floor);
+    const waves=[];function spawnWave(power=1,color=0x8e76ff){const ring=new THREE.Mesh(new THREE.RingGeometry(.68,.72,72),new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,transparent:true,opacity:.55,depthWrite:false}));ring.position.z=.06;scene.add(ring);waves.push({mesh:ring,life:0,max:1.9+power*.2,power})}
+    function setQuality(){const mode=qualityModes[qualityIndex],low=mode==='Low'||(mode==='Auto'&&isLowEnd);renderer.setPixelRatio(Math.min(devicePixelRatio,low?1:1.25));renderer.setSize(innerWidth,innerHeight,false);ui.quality.textContent=`⚙️ Quality: ${mode}`}setQuality();
+    function popup(text){ui.event.textContent=text;ui.event.classList.add('show');clearTimeout(eventTimer);eventTimer=setTimeout(()=>ui.event.classList.remove('show'),1600)}
+    function build(next=1){level=next;destroyed=0;queue.length=0;pulseCharge=0;pulseVisual=0;if(boxes){scene.remove(boxes);boxes.geometry.dispose();boxes.material.dispose()}const low=qualityModes[qualityIndex]==='Low'||(qualityModes[qualityIndex]==='Auto'&&isLowEnd);W=low?16:18;H=low?12:14;D=low?10:12;total=W*H*D;alive=total;states=new Uint8Array(total);hp=new Uint16Array(total);positions=new Array(total);radii=new Float32Array(total);baseHue=new Float32Array(total);const geometry=new THREE.BoxGeometry(.80,.80,.80),material=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,fog:false});boxes=new THREE.InstancedMesh(geometry,material,total);boxes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);const boxHP=Math.min(500,level);let i=0,maxR=1;for(let y=0;y<H;y++)for(let z=0;z<D;z++)for(let x=0;x<W;x++){const px=(x-(W-1)/2)*spacing,py=(y-(H-1)/2)*spacing+.45,pz=(z-(D-1)/2)*spacing,r=Math.sqrt(px*px+py*py+pz*pz);maxR=Math.max(maxR,r);positions[i]=[px,py,pz];radii[i]=r;hp[i]=boxHP;states[i]=1;dummy.position.set(px,py,pz);dummy.scale.setScalar(1);dummy.updateMatrix();boxes.setMatrixAt(i,dummy.matrix);const norm=(x/(W-1)+z/(D-1))*.5;baseHue[i]=.66-(norm*.14);tempColor.setHSL(baseHue[i],.82,.54);boxes.setColorAt(i,tempColor);i++}for(let n=0;n<Math.max(5,total*.008);n++)states[Math.random()*total|0]=2;boxes.userData.maxR=maxR;boxes.instanceColor.needsUpdate=true;boxes.instanceMatrix.needsUpdate=true;scene.add(boxes);floor.position.y=-(H*spacing)/2-.72;ui.levelinfo.textContent=`${total.toLocaleString()} blocks · ${boxHP} HP each · slow focus`;updateHud();spawnWave(.8,0x8e76ff);popup(`WORLD ${level} · ${boxHP} HP PER BLOCK`)}
+    function updateHud(){ui.world.textContent=level;ui.left.textContent=alive.toLocaleString();ui.destroyed.textContent=destroyed.toLocaleString();ui.bar.style.width=`${Math.min(100,destroyed/total*100)}%`;ui.chargeLine.textContent=`FOCUS ${Math.round(pulseCharge)}% · next pulse building`}
+    function hideBox(i){dummy.position.set(...positions[i]);dummy.scale.setScalar(.001);dummy.updateMatrix();boxes.setMatrixAt(i,dummy.matrix);boxes.instanceMatrix.needsUpdate=true}
+    function breakBox(i){if(i<0||!states[i])return;const special=states[i]===2;states[i]=0;hideBox(i);alive--;destroyed++;if(special){pulseCharge=Math.min(100,pulseCharge+28);spawnWave(1,0x69d7ff)}if(alive<=0){popup(`WORLD ${level} COMPLETE`);spawnWave(2,0xcbb8ff);setTimeout(()=>build(level+1),1800)}}
+    function getAliveNearCenter(){let best=-1,bestScore=Infinity;for(let tries=0;tries<32;tries++){const i=Math.random()*total|0;if(!states[i])continue;const score=radii[i]+Math.random()*2.4;if(score<bestScore){bestScore=score;best=i}}if(best>=0)return best;for(let i=0;i<total;i++)if(states[i]&&radii[i]<bestScore){bestScore=radii[i];best=i}return best}
+    function hitOne(amount=1){const i=getAliveNearCenter();if(i<0)return;hp[i]=Math.max(0,hp[i]-amount);if(hp[i]===0)breakBox(i)}
+    function queueDamage(damage,label,power=1,color=0x8e76ff){queue.push({damage:Math.max(1,Math.round(damage)),label});pulseVisual=Math.min(1.4,pulseVisual+.18*power);spawnWave(power,color);popup(label);if(navigator.vibrate&&power>=1.5)navigator.vibrate(22)}
+    function addFocus(amount,label='❤️ LIKES'){pulseCharge=Math.min(100,pulseCharge+amount);popup(`${label} · FOCUS ${Math.round(pulseCharge)}%`);if(pulseCharge>=100){pulseCharge-=100;queueDamage(120*level,'◉ FOCUS PULSE',1,0x8d76ff)}}
+    function gift(damage,label,power,color){queueDamage(damage,label,power,color);pulseCharge=Math.min(100,pulseCharge+12*power)}
+    function processQueue(){let budget=isLowEnd?22:34;while(queue.length&&budget>0){const a=queue[0],chunk=Math.min(a.damage,budget);a.damage-=chunk;budget-=chunk;for(let n=0;n<chunk;n++)hitOne(1);if(a.damage<=0)queue.shift()}}
+    document.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('pointerdown',()=>{const a=btn.dataset.action;if(a==='like')addFocus(18,'❤️ +100 LIKES');if(a==='small')gift(90*level,'🎁 SOFT PULSE',.8,0x8175ff);if(a==='medium')gift(190*level,'◉ PULSE GIFT',1.15,0x756dff);if(a==='large')gift(390*level,'◎ DEEP PULSE',1.55,0x62cfff);if(a==='huge')gift(780*level,'✦ CORE GIFT',2,0xc7b7ff)}));
+    $('auto').addEventListener('pointerdown',()=>{auto=!auto;ui.auto.textContent=`◌ Auto: ${auto?'ON':'OFF'}`;ui.auto.classList.toggle('on',auto)});$('reset').addEventListener('pointerdown',()=>build(level));$('quality').addEventListener('pointerdown',()=>{qualityIndex=(qualityIndex+1)%qualityModes.length;setQuality();build(level)});
+    function frame(now){const dt=Math.min(.04,(now-last)/1000);last=now;frames++;fpsClock+=dt;autoClock+=dt;colorClock+=dt;if(auto&&autoClock>1.15){autoClock=0;const r=Math.random();if(r<.82)addFocus(4+Math.random()*8,'❤️ LIVE LIKES');else gift(60*level,'🎁 VIEWER PULSE',.6,0x8074ff)}processQueue();const breath=(Math.sin(now*(Math.PI*2/7000))+1)*.5,slow=(Math.sin(now*(Math.PI*2/19000))+1)*.5;core.scale.setScalar(.92+breath*.16+pulseVisual*.06);core.material.opacity=.72+breath*.20;coreHalo.scale.setScalar(.96+breath*.12+pulseVisual*.12);coreHalo.material.opacity=.20+breath*.28;rings[0].rotation.z+=dt*.026;rings[1].rotation.z-=dt*.018;rings[0].material.opacity=.10+.09*breath;rings[1].material.opacity=.08+.08*(1-breath);angle+=dt*.009;const radius=Math.max(W,D)*1.72*(1+.014*Math.sin(now*.00052));camera.position.x=Math.cos(angle)*radius*.16;camera.position.z=radius+Math.sin(angle)*radius*.08;camera.position.y=H*.57+.35*Math.sin(now*.00041);camera.lookAt(0,.25+Math.sin(now*.00033)*.08,0);if(boxes&&colorClock>.18){colorClock=0;const phase=now*.00042;for(let i=0;i<total;i++){if(!states[i])continue;const rNorm=radii[i]/boxes.userData.maxR,wave=Math.sin(rNorm*8.5-phase*2.5),hue=(baseHue[i]+.018*slow+.012*wave)%1,light=.48+.08*breath+.055*wave;if(states[i]===2)tempColor.setHSL(.53,.88,.58+.08*breath);else tempColor.setHSL(hue,.80,light);boxes.setColorAt(i,tempColor)}boxes.instanceColor.needsUpdate=true}if(boxes){const s=.998+.012*breath;boxes.scale.setScalar(s)}for(let i=waves.length-1;i>=0;i--){const w=waves[i];w.life+=dt;const k=Math.min(1,w.life/w.max),s=1+w.life*(3+1.2*w.power);w.mesh.scale.setScalar(s);w.mesh.material.opacity=(1-k)*(.34+.10*w.power);if(w.life>=w.max){scene.remove(w.mesh);w.mesh.geometry.dispose();w.mesh.material.dispose();waves.splice(i,1)}}pulseVisual*=Math.pow(.28,dt);updateHud();renderer.render(scene,camera);if(fpsClock>1){ui.fps.textContent=`${Math.round(frames/fpsClock)} FPS`;fpsClock=0;frames=0}requestAnimationFrame(frame)}
+    addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();setQuality()});addEventListener('visibilitychange',()=>{last=performance.now()});
+    window.LiveBoxBreaker={likes:(count=1,user='viewer')=>addFocus(Math.max(1,count/6),`❤️ ${user}`),gift:(coins=1,user='viewer')=>gift(Math.max(30,coins*1.5)*level,`🎁 ${user}`,Math.min(2,.6+coins/800),0x8175ff),reset:()=>build(level),stats:()=>({world:level,total,alive,destroyed,focus:pulseCharge,queued:queue.reduce((n,a)=>n+a.damage,0)})};
+    build(1);requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
