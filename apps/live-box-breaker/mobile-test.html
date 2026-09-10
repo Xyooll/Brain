@@ -71,20 +71,19 @@
     const qualityModes = ['Auto','Low','High'];
     let qualityIndex = 0;
     let auto = true, level = 1, alive = 0, destroyed = 0, total = 0, eventTimer = 0, frenzyUntil = 0;
-    let W = 18, H = 14, D = 12, spacing = 1.05;
+    let W = 18, H = 14, D = 12, spacing = 1.02;
     let boxes, states=[], hp=[], positions=[];
     const queue=[];
     const dummy=new THREE.Object3D();
     const tempColor=new THREE.Color();
 
     const scene=new THREE.Scene();
-    scene.background=new THREE.Color(0x050713);
-    scene.fog=new THREE.FogExp2(0x050713,.018);
+    scene.background=new THREE.Color(0x070a14);
+    scene.fog=null;
     const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,200);
     const renderer=new THREE.WebGLRenderer({antialias:!isLowEnd,powerPreference:'high-performance'});
     renderer.outputColorSpace=THREE.SRGBColorSpace;
-    renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure=1.35;
+    renderer.toneMapping=THREE.NoToneMapping;
     document.body.prepend(renderer.domElement);
 
     scene.add(new THREE.HemisphereLight(0xeaf4ff,0x22143e,3.0));
@@ -113,12 +112,16 @@
       W=low?16:18; H=low?12:14; D=low?10:12;
       total=W*H*D; alive=total;
       states=new Uint8Array(total); hp=new Uint8Array(total); positions=new Array(total);
-      const geometry=new THREE.BoxGeometry(.94,.94,.94);
-      const material=new THREE.MeshStandardMaterial({roughness:.42,metalness:.06,vertexColors:true});
+      const geometry=new THREE.BoxGeometry(.82,.82,.82);
+      // Mobile visibility fix: colors are self-lit and no longer depend on scene lighting.
+      const material=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,fog:false});
       boxes=new THREE.InstancedMesh(geometry,material,total);
       boxes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       const boxHP=Math.min(250,level);
-      const palette=[0x31d7ff,0x6d5cff,0xb84dff,0xff4fa3,0xff6759,0xffb33c,0xf4ed44,0x46e36f,0x20d9b5];
+      const palette=[
+        0x00e5ff,0x2979ff,0x7c4dff,0xd500f9,0xff2d95,
+        0xff3d57,0xff7a18,0xffc400,0xe5ff00,0x00e676,0x00d6a3
+      ];
       let i=0;
       for(let y=0;y<H;y++) for(let z=0;z<D;z++) for(let x=0;x<W;x++){
         const px=(x-(W-1)/2)*spacing, py=(y-(H-1)/2)*spacing+.6, pz=(z-(D-1)/2)*spacing;
@@ -127,16 +130,16 @@
         const roll=Math.random();
         if(roll<.008){states[i]=2; tempColor.setHex(0xffd83d);} else if(roll<.025){states[i]=3; tempColor.setHex(0xff244f);} else {
           states[i]=1;
-          const band=(x+y+z+level)%palette.length;
-          tempColor.setHex(palette[(band+(Math.random()*3|0))%palette.length]);
-          tempColor.offsetHSL((Math.random()-.5)*.035,.08,(Math.random()-.5)*.08);
+          const band=(x + y*2 + z + level)%palette.length;
+          tempColor.setHex(palette[band]);
+          tempColor.offsetHSL((Math.random()-.5)*.012,0.05,(Math.random()-.5)*.025);
         }
         boxes.setColorAt(i,tempColor); i++;
       }
       boxes.instanceColor.needsUpdate=true; boxes.instanceMatrix.needsUpdate=true; scene.add(boxes);
       floor.position.y=-(H*spacing)/2-.8;
       const r=Math.max(W,D)*1.55; camera.position.set(r*.75,H*.95,r); camera.lookAt(0,0,0);
-      ui.levelinfo.textContent=`${total.toLocaleString()} blocks · ${boxHP} HP each · same block count every world`;
+      ui.levelinfo.textContent=`${total.toLocaleString()} bright blocks · ${boxHP} HP each · same count every world`;
       updateHud(); popup(`WORLD ${level} — BLOCK HP ${boxHP}`);
     }
 
