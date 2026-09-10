@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#050713" />
+  <title>Live Box Breaker - Mobile Test</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;background:#050713}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050713;touch-action:none}
+    canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+    #hud{position:fixed;inset:0;pointer-events:none;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;justify-content:space-between}
+    .top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
+    .panel{background:rgba(7,9,22,.72);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);border-radius:14px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.28)}
+    .title{font-weight:900;font-size:18px;letter-spacing:.3px}.sub{font-size:12px;opacity:.72;margin-top:2px}
+    .stats{display:grid;grid-template-columns:repeat(3,auto);gap:12px;font-size:12px;text-align:center}.stats b{display:block;font-size:16px}
+    #event{align-self:center;margin-top:8px;max-width:92vw;text-align:center;font-weight:800;opacity:0;transform:translateY(-6px);transition:.18s ease}#event.show{opacity:1;transform:none}
+    .progress{height:8px;background:rgba(255,255,255,.1);border-radius:999px;overflow:hidden;margin-top:8px}#bar{height:100%;width:0;background:linear-gradient(90deg,#7c5cff,#49d8ff);transition:width .15s linear}
+    .controls{pointer-events:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    button{border:1px solid rgba(255,255,255,.17);border-radius:14px;padding:12px 7px;background:rgba(17,22,49,.86);color:#fff;font-weight:800;font-size:13px;min-height:48px;box-shadow:0 6px 18px rgba(0,0,0,.22)}button:active{transform:scale(.97);background:rgba(37,45,91,.95)}
+    .wide{grid-column:span 2}.danger{background:rgba(100,24,44,.86)}.auto.on{background:rgba(19,82,63,.86)}
+    #fps{position:fixed;right:10px;bottom:calc(168px + env(safe-area-inset-bottom));font-size:10px;opacity:.45;pointer-events:none}
+    @media (min-width:720px){.controls{max-width:620px;align-self:center;width:100%}.panel{padding:12px 14px}.title{font-size:22px}}
+  </style>
+</head>
+<body>
+  <div id="hud"><div><div class="top"><div class="panel"><div class="title">LIVE BOX BREAKER</div><div class="sub">Mobile test build · tap attacks below</div><div class="progress"><div id="bar"></div></div></div><div class="panel stats"><span><b id="world">1</b>WORLD</span><span><b id="left">0</b>LEFT</span><span><b id="destroyed">0</b>BROKEN</span></div></div><div id="event" class="panel"></div></div>
+    <div class="controls"><button data-action="like">❤️ +100 Likes</button><button data-action="small">🎁 Small Gift</button><button data-action="medium">💣 Bomb Gift</button><button data-action="large">☄️ Meteor</button><button data-action="huge" class="danger">💥 Huge Gift</button><button id="auto" class="auto on">🤖 Auto: ON</button><button id="reset" class="wide">↻ New World</button><button id="quality">⚙️ Quality: Auto</button></div></div><div id="fps"></div>
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js';
+    const $=id=>document.getElementById(id); const ui={world:$('world'),left:$('left'),destroyed:$('destroyed'),bar:$('bar'),event:$('event'),auto:$('auto'),fps:$('fps'),quality:$('quality')};
+    const isLowEnd=(navigator.deviceMemory&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4),qualityModes=['Auto','Low','High'];
+    let qualityIndex=0,auto=true,level=1,alive=0,destroyed=0,total=0,eventTimer=0,frenzyUntil=0,W=18,H=14,D=12,spacing=1.05,boxes,states=[],hp=[],positions=[]; const queue=[],dummy=new THREE.Object3D(),tempColor=new THREE.Color();
+    const scene=new THREE.Scene(); scene.background=new THREE.Color(0x050713); scene.fog=new THREE.FogExp2(0x050713,.018); const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,200); const renderer=new THREE.WebGLRenderer({antialias:!isLowEnd,powerPreference:'high-performance'}); renderer.outputColorSpace=THREE.SRGBColorSpace; document.body.prepend(renderer.domElement);
+    scene.add(new THREE.HemisphereLight(0xbfd3ff,0x15152b,2)); const sun=new THREE.DirectionalLight(0xffffff,2.6);sun.position.set(14,24,18);scene.add(sun);const rim=new THREE.PointLight(0x7d58ff,70,80);rim.position.set(-20,12,-18);scene.add(rim);const floor=new THREE.GridHelper(70,35,0x24305f,0x151b34);scene.add(floor);
+    function setQuality(){const mode=qualityModes[qualityIndex],low=mode==='Low'||(mode==='Auto'&&isLowEnd);renderer.setPixelRatio(Math.min(devicePixelRatio,low?1:1.45));renderer.setSize(innerWidth,innerHeight,false);ui.quality.textContent=`⚙️ Quality: ${mode}`;} setQuality();
+    function popup(text){ui.event.textContent=text;ui.event.classList.add('show');clearTimeout(eventTimer);eventTimer=setTimeout(()=>ui.event.classList.remove('show'),1300)}
+    function build(next=1){level=next;destroyed=0;queue.length=0;if(boxes){scene.remove(boxes);boxes.geometry.dispose();boxes.material.dispose()}const low=qualityModes[qualityIndex]==='Low'||(qualityModes[qualityIndex]==='Auto'&&isLowEnd);W=low?16:18;H=low?12:14;D=low?10:12;total=W*H*D;alive=total;states=new Uint8Array(total);hp=new Uint8Array(total);positions=new Array(total);const geometry=new THREE.BoxGeometry(.94,.94,.94),material=new THREE.MeshStandardMaterial({roughness:.62,metalness:.12,vertexColors:true});boxes=new THREE.InstancedMesh(geometry,material,total);boxes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);let i=0;for(let y=0;y<H;y++)for(let z=0;z<D;z++)for(let x=0;x<W;x++){const px=(x-(W-1)/2)*spacing,py=(y-(H-1)/2)*spacing+.6,pz=(z-(D-1)/2)*spacing;positions[i]=[px,py,pz];hp[i]=Math.min(6,1+Math.floor((level-1)/3));dummy.position.set(px,py,pz);dummy.scale.setScalar(1);dummy.updateMatrix();boxes.setMatrixAt(i,dummy.matrix);const roll=Math.random();if(roll<.008){states[i]=2;tempColor.setHex(0xffd34f)}else if(roll<.025){states[i]=3;tempColor.setHex(0xff4f72)}else{states[i]=1;tempColor.setHSL(.60+Math.random()*.08,.60,.48+Math.random()*.12)}boxes.setColorAt(i,tempColor);i++}boxes.instanceColor.needsUpdate=true;boxes.instanceMatrix.needsUpdate=true;scene.add(boxes);floor.position.y=-(H*spacing)/2-.8;const r=Math.max(W,D)*1.55;camera.position.set(r*.75,H*.95,r);camera.lookAt(0,0,0);updateHud();popup(`WORLD ${level} — ${total.toLocaleString()} BOXES`)}
+    function updateHud(){ui.world.textContent=level;ui.left.textContent=alive.toLocaleString();ui.destroyed.textContent=destroyed.toLocaleString();ui.bar.style.width=`${Math.min(100,destroyed/total*100)}%`}
+    function randomAlive(){if(alive<=0)return-1;for(let tries=0;tries<35;tries++){const i=Math.random()*total|0;if(states[i])return i}for(let i=0;i<total;i++)if(states[i])return i;return-1}
+    function hideBox(i){dummy.position.set(...positions[i]);dummy.scale.setScalar(.001);dummy.updateMatrix();boxes.setMatrixAt(i,dummy.matrix);boxes.instanceMatrix.needsUpdate=true}
+    function breakBox(i){if(i<0||!states[i])return;const kind=states[i];states[i]=0;hideBox(i);alive--;destroyed++;if(kind===2){frenzyUntil=performance.now()+15000;popup('✨ GOLD BOX! 10× DAMAGE FOR 15s')}if(kind===3){popup('💣 CHAIN BOX!');queue.push({damage:70,label:'CHAIN REACTION'})}if(alive<=0){popup(`🏆 WORLD ${level} CLEARED`);setTimeout(()=>build(level+1),1200)}}
+    function hitOne(amount){const i=randomAlive();if(i<0)return;const dmg=Math.max(1,amount|0);hp[i]=Math.max(0,hp[i]-dmg);if(hp[i]===0)breakBox(i)}
+    function attack(damage,label){const mult=performance.now()<frenzyUntil?10:1;queue.push({damage:Math.max(1,Math.round(damage*mult)),label});popup(`${label} · ${damage*mult} DAMAGE`);if(navigator.vibrate)navigator.vibrate(Math.min(80,10+damage/8))}
+    function processQueue(){let budget=isLowEnd?42:70;while(queue.length&&budget>0){const a=queue[0],chunk=Math.min(a.damage,budget);a.damage-=chunk;budget-=chunk;for(let n=0;n<chunk;n++)hitOne(1);if(a.damage<=0)queue.shift()}updateHud()}
+    document.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('pointerdown',()=>{const a=btn.dataset.action;if(a==='like')attack(100,'❤️ LIKE BURST');if(a==='small')attack(220,'🎁 GIFT STRIKE');if(a==='medium')attack(500,'💣 BOMB');if(a==='large')attack(1100,'☄️ METEOR');if(a==='huge')attack(2600,'💥 CATACLYSM')}));
+    $('auto').addEventListener('pointerdown',()=>{auto=!auto;ui.auto.textContent=`🤖 Auto: ${auto?'ON':'OFF'}`;ui.auto.classList.toggle('on',auto)});$('reset').addEventListener('pointerdown',()=>build(level));$('quality').addEventListener('pointerdown',()=>{qualityIndex=(qualityIndex+1)%qualityModes.length;setQuality();build(level)});
+    let last=performance.now(),angle=0,autoClock=0,fpsClock=0,frames=0;function frame(now){const dt=Math.min(.04,(now-last)/1000);last=now;frames++;fpsClock+=dt;autoClock+=dt;if(auto&&autoClock>.46){autoClock=0;const r=Math.random();if(r<.72)attack(35+(Math.random()*90|0),'❤️ LIVE LIKES');else if(r<.9)attack(180,'🎁 VIEWER GIFT');else attack(620,'☄️ BIG GIFT')}processQueue();angle+=dt*.09;const radius=Math.max(W,D)*1.8;camera.position.x=Math.cos(angle)*radius;camera.position.z=Math.sin(angle)*radius;camera.position.y=H*.82+Math.sin(angle*1.7)*2.1;camera.lookAt(0,.4,0);renderer.render(scene,camera);if(fpsClock>1){ui.fps.textContent=`${Math.round(frames/fpsClock)} FPS`;fpsClock=0;frames=0}requestAnimationFrame(frame)}
+    addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();setQuality()});addEventListener('visibilitychange',()=>{last=performance.now()});
+    window.LiveBoxBreaker={likes:(count=1,user='viewer')=>attack(Math.max(1,count),`❤️ ${user}`),gift:(coins=1,user='viewer')=>attack(Math.max(30,coins*2),`🎁 ${user}`),reset:()=>build(level),stats:()=>({world:level,total,alive,destroyed,queued:queue.reduce((n,a)=>n+a.damage,0),frenzy:performance.now()<frenzyUntil})};
+    build(1);requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
