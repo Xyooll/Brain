@@ -3,42 +3,53 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#050713" />
-  <title>Live Box Breaker - Mobile Test</title>
+  <meta name="theme-color" content="#070a14" />
+  <title>Live Box Breaker - Neon Pulse</title>
   <style>
-    :root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;background:#050713}
+    :root{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff;background:#070a14}
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050713;touch-action:none}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:radial-gradient(circle at 50% 38%,#171042 0,#0a0e21 36%,#05070e 72%,#020308 100%);touch-action:none}
     canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
-    #hud{position:fixed;inset:0;pointer-events:none;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;justify-content:space-between}
+    #vignette,#scan,#flash{position:fixed;inset:0;pointer-events:none}
+    #vignette{z-index:2;background:radial-gradient(circle at 50% 45%,transparent 30%,rgba(0,0,0,.18) 63%,rgba(0,0,0,.68) 100%)}
+    #scan{z-index:3;opacity:.13;background:repeating-linear-gradient(0deg,transparent 0 4px,rgba(255,255,255,.045) 5px)}
+    #flash{z-index:4;opacity:0;background:radial-gradient(circle at center,rgba(255,255,255,.95),rgba(127,76,255,.55) 34%,transparent 70%);mix-blend-mode:screen}
+    #flash.fire{animation:flash .28s ease-out}
+    @keyframes flash{0%{opacity:.95}100%{opacity:0}}
+    #hud{position:fixed;z-index:6;inset:0;pointer-events:none;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column;justify-content:space-between}
     .top{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start}
-    .panel{background:rgba(7,9,22,.72);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);border-radius:14px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.28)}
-    .title{font-weight:900;font-size:18px;letter-spacing:.3px}
-    .sub{font-size:12px;opacity:.72;margin-top:2px}
+    .panel{background:linear-gradient(145deg,rgba(10,13,32,.78),rgba(19,12,43,.64));border:1px solid rgba(154,130,255,.26);backdrop-filter:blur(10px);border-radius:16px;padding:10px 12px;box-shadow:0 0 28px rgba(91,69,255,.10),0 8px 28px rgba(0,0,0,.35)}
+    .title{font-weight:1000;font-size:18px;letter-spacing:.6px;text-shadow:0 0 14px rgba(86,216,255,.55)}
+    .sub{font-size:12px;opacity:.78;margin-top:2px}
     .stats{display:grid;grid-template-columns:repeat(3,auto);gap:12px;font-size:12px;text-align:center}
-    .stats b{display:block;font-size:16px}
-    #event{align-self:center;margin-top:8px;max-width:92vw;text-align:center;font-weight:800;opacity:0;transform:translateY(-6px);transition:.18s ease}
-    #event.show{opacity:1;transform:none}
-    .progress{height:8px;background:rgba(255,255,255,.1);border-radius:999px;overflow:hidden;margin-top:8px}
-    #bar{height:100%;width:0;background:linear-gradient(90deg,#7c5cff,#49d8ff);transition:width .15s linear}
+    .stats b{display:block;font-size:16px;text-shadow:0 0 12px rgba(95,214,255,.5)}
+    #event{align-self:center;margin-top:8px;max-width:92vw;text-align:center;font-weight:950;opacity:0;transform:translateY(-6px) scale(.96);transition:.16s ease}
+    #event.show{opacity:1;transform:none;box-shadow:0 0 28px rgba(212,77,255,.28),0 0 55px rgba(54,213,255,.18)}
+    .progress{height:8px;background:rgba(255,255,255,.09);border-radius:999px;overflow:hidden;margin-top:8px;box-shadow:inset 0 0 10px rgba(0,0,0,.5)}
+    #bar{height:100%;width:0;background:linear-gradient(90deg,#00e5ff,#744dff,#ff2d95,#ffc400);background-size:220% 100%;animation:flow 2.2s linear infinite;box-shadow:0 0 12px rgba(65,218,255,.8);transition:width .15s linear}
+    @keyframes flow{to{background-position:-220% 0}}
+    #combo{margin-top:7px;font-size:11px;font-weight:900;letter-spacing:.7px;opacity:.88}
+    #combo.hot{animation:comboPulse .55s ease-in-out infinite alternate}
+    @keyframes comboPulse{to{transform:scale(1.025);text-shadow:0 0 14px #ff4ad8,0 0 22px #00e5ff}}
     .controls{pointer-events:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-    button{border:1px solid rgba(255,255,255,.17);border-radius:14px;padding:12px 7px;background:rgba(17,22,49,.86);color:#fff;font-weight:800;font-size:13px;min-height:48px;box-shadow:0 6px 18px rgba(0,0,0,.22)}
-    button:active{transform:scale(.97);background:rgba(37,45,91,.95)}
-    .wide{grid-column:span 2}
-    .danger{background:rgba(100,24,44,.86)}
-    .auto.on{background:rgba(19,82,63,.86)}
-    #fps{position:fixed;right:10px;bottom:calc(168px + env(safe-area-inset-bottom));font-size:10px;opacity:.45;pointer-events:none}
+    button{border:1px solid rgba(171,153,255,.28);border-radius:15px;padding:12px 7px;background:linear-gradient(145deg,rgba(16,23,54,.93),rgba(23,16,52,.91));color:#fff;font-weight:900;font-size:13px;min-height:48px;box-shadow:0 6px 18px rgba(0,0,0,.26),inset 0 0 16px rgba(83,67,255,.05)}
+    button:active{transform:scale(.965);filter:brightness(1.35)}
+    .wide{grid-column:span 2}.danger{background:linear-gradient(145deg,rgba(122,20,48,.92),rgba(70,24,93,.92));box-shadow:0 0 20px rgba(255,37,101,.18)}
+    .auto.on{background:linear-gradient(145deg,rgba(19,82,63,.9),rgba(16,55,83,.9))}
+    #fps{position:fixed;z-index:7;right:10px;bottom:calc(168px + env(safe-area-inset-bottom));font-size:10px;opacity:.45;pointer-events:none}
     @media (min-width:720px){.controls{max-width:620px;align-self:center;width:100%}.panel{padding:12px 14px}.title{font-size:22px}}
   </style>
 </head>
 <body>
+  <div id="vignette"></div><div id="scan"></div><div id="flash"></div>
   <div id="hud">
     <div>
       <div class="top">
         <div class="panel">
           <div class="title">LIVE BOX BREAKER</div>
-          <div class="sub" id="levelinfo">Mobile test build · tap attacks below</div>
+          <div class="sub" id="levelinfo">Neon Pulse test build</div>
           <div class="progress"><div id="bar"></div></div>
+          <div id="combo">HYPE x1.00 · STREAK 0</div>
         </div>
         <div class="panel stats">
           <span><b id="world">1</b>WORLD</span>
@@ -48,6 +59,7 @@
       </div>
       <div id="event" class="panel"></div>
     </div>
+
     <div class="controls">
       <button data-action="like">❤️ +100 Likes</button>
       <button data-action="small">🎁 Small Gift</button>
@@ -64,164 +76,144 @@
   <script type="module">
     import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js';
 
-    const $ = (id) => document.getElementById(id);
-    const ui = { world:$('world'), left:$('left'), destroyed:$('destroyed'), bar:$('bar'), event:$('event'), auto:$('auto'), fps:$('fps'), quality:$('quality'), levelinfo:$('levelinfo') };
+    const $=id=>document.getElementById(id);
+    const ui={world:$('world'),left:$('left'),destroyed:$('destroyed'),bar:$('bar'),event:$('event'),auto:$('auto'),fps:$('fps'),quality:$('quality'),levelinfo:$('levelinfo'),combo:$('combo'),flash:$('flash')};
+    const isLowEnd=(navigator.deviceMemory&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4);
+    const qualityModes=['Auto','Low','High'];
 
-    const isLowEnd = (navigator.deviceMemory && navigator.deviceMemory <= 4) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
-    const qualityModes = ['Auto','Low','High'];
-    let qualityIndex = 0;
-    let auto = true, level = 1, alive = 0, destroyed = 0, total = 0, eventTimer = 0, frenzyUntil = 0;
-    let W = 18, H = 14, D = 12, spacing = 1.02;
-    let boxes, states=[], hp=[], positions=[];
-    const queue=[];
-    const dummy=new THREE.Object3D();
-    const tempColor=new THREE.Color();
+    let qualityIndex=0,auto=true,level=1,alive=0,destroyed=0,total=0,eventTimer=0,frenzyUntil=0;
+    let W=18,H=14,D=12,spacing=1.02,boxes,states=[],hp=[],positions=[],baseHue=[],baseLight=[];
+    let combo=0,lastAttackAt=0,cameraKick=0,pulsePower=0;
+    const queue=[],dummy=new THREE.Object3D(),tempColor=new THREE.Color();
 
     const scene=new THREE.Scene();
     scene.background=new THREE.Color(0x070a14);
-    scene.fog=null;
-    const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,200);
-    const renderer=new THREE.WebGLRenderer({antialias:!isLowEnd,powerPreference:'high-performance'});
+    const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,.1,220);
+    const renderer=new THREE.WebGLRenderer({antialias:!isLowEnd,powerPreference:'high-performance',alpha:true});
     renderer.outputColorSpace=THREE.SRGBColorSpace;
     renderer.toneMapping=THREE.NoToneMapping;
+    renderer.setClearColor(0x000000,0);
     document.body.prepend(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xeaf4ff,0x22143e,3.0));
-    const sun=new THREE.DirectionalLight(0xffffff,3.2); sun.position.set(14,24,18); scene.add(sun);
-    const rim=new THREE.PointLight(0x7d58ff,70,80); rim.position.set(-20,12,-18); scene.add(rim);
-    const floor=new THREE.GridHelper(70,35,0x24305f,0x151b34); scene.add(floor);
-
-    function setQuality(){
-      const mode=qualityModes[qualityIndex];
-      const low = mode==='Low' || (mode==='Auto' && isLowEnd);
-      renderer.setPixelRatio(Math.min(devicePixelRatio, low?1:1.45));
-      renderer.setSize(innerWidth,innerHeight,false);
-      ui.quality.textContent=`⚙️ Quality: ${mode}`;
+    const starCount=isLowEnd?380:700;
+    const starPos=new Float32Array(starCount*3);
+    for(let i=0;i<starCount;i++){
+      const r=45+Math.random()*65,a=Math.random()*Math.PI*2,u=Math.random()*2-1,s=Math.sqrt(1-u*u);
+      starPos[i*3]=Math.cos(a)*s*r; starPos[i*3+1]=u*r*.72; starPos[i*3+2]=Math.sin(a)*s*r;
     }
+    const starGeo=new THREE.BufferGeometry(); starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));
+    const stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xbfa6ff,size:.16,transparent:true,opacity:.78,depthWrite:false,blending:THREE.AdditiveBlending}));
+    scene.add(stars);
+
+    const floor=new THREE.GridHelper(70,35,0x3c37a6,0x161b34); scene.add(floor);
+
+    const halos=[];
+    for(let i=0;i<3;i++){
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(13+i*2.7,.045,6,96),new THREE.MeshBasicMaterial({color:[0x00e5ff,0xa74cff,0xff2d95][i],transparent:true,opacity:.28,depthWrite:false,blending:THREE.AdditiveBlending}));
+      ring.rotation.x=Math.PI/2+(i-1)*.32; ring.rotation.y=i*.72; scene.add(ring); halos.push(ring);
+    }
+
+    const shockwaves=[];
+    function makeShockwave(strength=1,color=0x7f5cff){
+      if(qualityModes[qualityIndex]==='Low'&&strength<1.5)return;
+      const ring=new THREE.Mesh(new THREE.RingGeometry(.7,.82,64),new THREE.MeshBasicMaterial({color,side:THREE.DoubleSide,transparent:true,opacity:.9,depthWrite:false,blending:THREE.AdditiveBlending}));
+      ring.rotation.x=-Math.PI/2;ring.position.y=0;scene.add(ring);shockwaves.push({mesh:ring,life:0,max:.7+Math.min(1,strength*.14),speed:10+strength*2.2});
+    }
+
+    const sparks=[];
+    function sparkBurst(count=12,strength=1,color=0xffffff){
+      const cap=isLowEnd?18:34;count=Math.min(count,cap);
+      for(let i=0;i<count;i++){
+        const geo=new THREE.SphereGeometry(.045+Math.random()*.04,4,4);
+        const mat=new THREE.MeshBasicMaterial({color,transparent:true,opacity:1,depthWrite:false,blending:THREE.AdditiveBlending});
+        const m=new THREE.Mesh(geo,mat),a=Math.random()*Math.PI*2,v=(2.8+Math.random()*4)*Math.min(2.4,strength);
+        m.position.set((Math.random()-.5)*2,(Math.random()-.5)*2,(Math.random()-.5)*2);scene.add(m);sparks.push({m,v:new THREE.Vector3(Math.cos(a)*v,(Math.random()*2.2+1)*strength,Math.sin(a)*v),life:0,max:.45+Math.random()*.45});
+      }
+    }
+
+    function screenFlash(power=1){ui.flash.classList.remove('fire');void ui.flash.offsetWidth;ui.flash.style.filter=`brightness(${Math.min(2.3,1+power*.25)})`;ui.flash.classList.add('fire')}
+    function setQuality(){const mode=qualityModes[qualityIndex],low=mode==='Low'||(mode==='Auto'&&isLowEnd);renderer.setPixelRatio(Math.min(devicePixelRatio,low?1:1.35));renderer.setSize(innerWidth,innerHeight,false);ui.quality.textContent=`⚙️ Quality: ${mode}`}
     setQuality();
 
-    function popup(text){
-      ui.event.textContent=text; ui.event.classList.add('show');
-      clearTimeout(eventTimer); eventTimer=setTimeout(()=>ui.event.classList.remove('show'),1300);
-    }
+    function popup(text){ui.event.textContent=text;ui.event.classList.add('show');clearTimeout(eventTimer);eventTimer=setTimeout(()=>ui.event.classList.remove('show'),1250)}
 
     function build(next=1){
-      level=next; destroyed=0; queue.length=0;
-      if(boxes){scene.remove(boxes); boxes.geometry.dispose(); boxes.material.dispose();}
-      const low = qualityModes[qualityIndex]==='Low' || (qualityModes[qualityIndex]==='Auto' && isLowEnd);
-      W=low?16:18; H=low?12:14; D=low?10:12;
-      total=W*H*D; alive=total;
-      states=new Uint8Array(total); hp=new Uint8Array(total); positions=new Array(total);
-      const geometry=new THREE.BoxGeometry(.82,.82,.82);
-      // Mobile visibility fix: colors are self-lit and no longer depend on scene lighting.
-      const material=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,fog:false});
-      boxes=new THREE.InstancedMesh(geometry,material,total);
-      boxes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-      const boxHP=Math.min(250,level);
-      const palette=[
-        0x00e5ff,0x2979ff,0x7c4dff,0xd500f9,0xff2d95,
-        0xff3d57,0xff7a18,0xffc400,0xe5ff00,0x00e676,0x00d6a3
-      ];
+      level=next;destroyed=0;queue.length=0;combo=0;lastAttackAt=0;
+      if(boxes){scene.remove(boxes);boxes.geometry.dispose();boxes.material.dispose()}
+      const low=qualityModes[qualityIndex]==='Low'||(qualityModes[qualityIndex]==='Auto'&&isLowEnd);
+      W=low?16:18;H=low?12:14;D=low?10:12;total=W*H*D;alive=total;
+      states=new Uint8Array(total);hp=new Uint16Array(total);positions=new Array(total);baseHue=new Float32Array(total);baseLight=new Float32Array(total);
+      const geometry=new THREE.BoxGeometry(.82,.82,.82),material=new THREE.MeshBasicMaterial({color:0xffffff,toneMapped:false,fog:false});
+      boxes=new THREE.InstancedMesh(geometry,material,total);boxes.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      const boxHP=Math.min(500,level),palette=[.52,.58,.68,.78,.88,.96,.04,.11,.18,.37,.47];
       let i=0;
-      for(let y=0;y<H;y++) for(let z=0;z<D;z++) for(let x=0;x<W;x++){
-        const px=(x-(W-1)/2)*spacing, py=(y-(H-1)/2)*spacing+.6, pz=(z-(D-1)/2)*spacing;
-        positions[i]=[px,py,pz]; hp[i]=boxHP;
-        dummy.position.set(px,py,pz); dummy.scale.setScalar(1); dummy.updateMatrix(); boxes.setMatrixAt(i,dummy.matrix);
+      for(let y=0;y<H;y++)for(let z=0;z<D;z++)for(let x=0;x<W;x++){
+        const px=(x-(W-1)/2)*spacing,py=(y-(H-1)/2)*spacing+.6,pz=(z-(D-1)/2)*spacing;
+        positions[i]=[px,py,pz];hp[i]=boxHP;dummy.position.set(px,py,pz);dummy.scale.setScalar(1);dummy.updateMatrix();boxes.setMatrixAt(i,dummy.matrix);
         const roll=Math.random();
-        if(roll<.008){states[i]=2; tempColor.setHex(0xffd83d);} else if(roll<.025){states[i]=3; tempColor.setHex(0xff244f);} else {
-          states[i]=1;
-          const band=(x + y*2 + z + level)%palette.length;
-          tempColor.setHex(palette[band]);
-          tempColor.offsetHSL((Math.random()-.5)*.012,0.05,(Math.random()-.5)*.025);
-        }
-        boxes.setColorAt(i,tempColor); i++;
+        if(roll<.008){states[i]=2;baseHue[i]=.13;baseLight[i]=.62;tempColor.setHSL(.13,1,.62)}
+        else if(roll<.025){states[i]=3;baseHue[i]=.97;baseLight[i]=.55;tempColor.setHSL(.97,1,.55)}
+        else{states[i]=1;baseHue[i]=palette[(x+y*2+z+level)%palette.length];baseLight[i]=.56+Math.random()*.08;tempColor.setHSL(baseHue[i],.96,baseLight[i])}
+        boxes.setColorAt(i,tempColor);i++;
       }
-      boxes.instanceColor.needsUpdate=true; boxes.instanceMatrix.needsUpdate=true; scene.add(boxes);
-      floor.position.y=-(H*spacing)/2-.8;
-      const r=Math.max(W,D)*1.55; camera.position.set(r*.75,H*.95,r); camera.lookAt(0,0,0);
-      ui.levelinfo.textContent=`${total.toLocaleString()} bright blocks · ${boxHP} HP each · same count every world`;
-      updateHud(); popup(`WORLD ${level} — BLOCK HP ${boxHP}`);
+      boxes.instanceColor.needsUpdate=true;boxes.instanceMatrix.needsUpdate=true;scene.add(boxes);floor.position.y=-(H*spacing)/2-.8;
+      ui.levelinfo.textContent=`${total.toLocaleString()} blocks · ${boxHP} HP each · NEON PULSE`;updateHud();popup(`WORLD ${level} · ${boxHP} HP PER BLOCK`);makeShockwave(1.3,0x00e5ff);screenFlash(.45);
     }
 
-    function updateHud(){
-      ui.world.textContent=level; ui.left.textContent=alive.toLocaleString(); ui.destroyed.textContent=destroyed.toLocaleString();
-      ui.bar.style.width=`${Math.min(100,(destroyed/total)*100)}%`;
-    }
-
-    function randomAlive(){
-      if(alive<=0) return -1;
-      for(let tries=0;tries<35;tries++){const i=(Math.random()*total)|0;if(states[i])return i;}
-      for(let i=0;i<total;i++) if(states[i]) return i;
-      return -1;
-    }
-
-    function hideBox(i){
-      dummy.position.set(...positions[i]); dummy.scale.setScalar(.001); dummy.updateMatrix(); boxes.setMatrixAt(i,dummy.matrix); boxes.instanceMatrix.needsUpdate=true;
-    }
+    function updateHud(){ui.world.textContent=level;ui.left.textContent=alive.toLocaleString();ui.destroyed.textContent=destroyed.toLocaleString();ui.bar.style.width=`${Math.min(100,destroyed/total*100)}%`;const hype=1+Math.min(1.5,Math.floor(combo/5)*.1);ui.combo.textContent=`HYPE x${hype.toFixed(2)} · STREAK ${combo}`;ui.combo.classList.toggle('hot',combo>=10)}
+    function randomAlive(){if(alive<=0)return-1;for(let tries=0;tries<35;tries++){const i=Math.random()*total|0;if(states[i])return i}for(let i=0;i<total;i++)if(states[i])return i;return-1}
+    function hideBox(i){dummy.position.set(...positions[i]);dummy.scale.setScalar(.001);dummy.updateMatrix();boxes.setMatrixAt(i,dummy.matrix);boxes.instanceMatrix.needsUpdate=true}
 
     function breakBox(i){
-      if(i<0||!states[i]) return;
-      const kind=states[i]; states[i]=0; hideBox(i); alive--; destroyed++;
-      if(kind===2){frenzyUntil=performance.now()+15000; popup('✨ GOLD BOX! 10× DAMAGE FOR 15s');}
-      if(kind===3){popup('💣 CHAIN BOX!'); queue.push({damage:70,label:'CHAIN REACTION'});}
-      if(alive<=0){popup(`🏆 WORLD ${level} CLEARED`); setTimeout(()=>build(level+1),1200);}
+      if(i<0||!states[i])return;const kind=states[i];states[i]=0;hideBox(i);alive--;destroyed++;pulsePower=Math.min(1.8,pulsePower+.018);
+      if(kind===2){frenzyUntil=performance.now()+15000;popup('✨ GOLD BOX · 10× FRENZY');makeShockwave(2.1,0xffd83d);sparkBurst(24,1.7,0xffd83d);screenFlash(1.2)}
+      if(kind===3){popup('💣 CHAIN BOX!');queue.push({damage:70,label:'CHAIN REACTION'});makeShockwave(1.7,0xff2458);sparkBurst(20,1.4,0xff2458)}
+      if(alive<=0){popup(`🏆 WORLD ${level} CLEARED`);screenFlash(2);makeShockwave(3,0xffffff);setTimeout(()=>build(level+1),1200)}
     }
 
-    function hitOne(amount){
-      const i=randomAlive(); if(i<0) return;
-      const dmg=Math.max(1,amount|0); hp[i]=Math.max(0,hp[i]-dmg); if(hp[i]===0) breakBox(i);
-    }
+    function hitOne(amount){const i=randomAlive();if(i<0)return;const dmg=Math.max(1,amount|0);hp[i]=Math.max(0,hp[i]-dmg);if(hp[i]===0)breakBox(i)}
+    function registerCombo(){const now=performance.now();combo=(now-lastAttackAt<2200)?Math.min(99,combo+1):1;lastAttackAt=now;return 1+Math.min(1.5,Math.floor(combo/5)*.1)}
+    function attack(damage,label,fx=1,color=0x7c5cff){const frenzy=performance.now()<frenzyUntil?10:1,hype=registerCombo(),final=Math.max(1,Math.round(damage*frenzy*hype));queue.push({damage:final,label});popup(`${label} · ${final} DAMAGE`);pulsePower=Math.min(2.3,pulsePower+.16*fx);cameraKick=Math.max(cameraKick,.12*fx);makeShockwave(fx,color);if(fx>=1.1)sparkBurst(Math.round(8+fx*5),fx,color);if(fx>=1.65)screenFlash(fx*.65);if(navigator.vibrate)navigator.vibrate(fx>=2?[22,28,42]:Math.min(90,12+damage/10))}
+    function processQueue(){let budget=isLowEnd?46:82;while(queue.length&&budget>0){const a=queue[0],chunk=Math.min(a.damage,budget);a.damage-=chunk;budget-=chunk;for(let n=0;n<chunk;n++)hitOne(1);if(a.damage<=0)queue.shift()}}
 
-    function attack(damage,label){
-      const mult=performance.now()<frenzyUntil?10:1;
-      queue.push({damage:Math.max(1,Math.round(damage*mult)),label}); popup(`${label} · ${damage*mult} DAMAGE`);
-      if(navigator.vibrate) navigator.vibrate(Math.min(80,10+damage/8));
-    }
-
-    function processQueue(){
-      let budget=isLowEnd?42:70;
-      while(queue.length && budget>0){
-        const a=queue[0]; const chunk=Math.min(a.damage,budget); a.damage-=chunk; budget-=chunk;
-        for(let n=0;n<chunk;n++) hitOne(1);
-        if(a.damage<=0) queue.shift();
-      }
-      updateHud();
-    }
-
-    document.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('pointerdown',()=>{
-      const a=btn.dataset.action;
-      if(a==='like') attack(100,'❤️ LIKE BURST');
-      if(a==='small') attack(220,'🎁 GIFT STRIKE');
-      if(a==='medium') attack(500,'💣 BOMB');
-      if(a==='large') attack(1100,'☄️ METEOR');
-      if(a==='huge') attack(2600,'💥 CATACLYSM');
-    }));
-    $('auto').addEventListener('pointerdown',()=>{auto=!auto; ui.auto.textContent=`🤖 Auto: ${auto?'ON':'OFF'}`; ui.auto.classList.toggle('on',auto);});
+    document.querySelectorAll('[data-action]').forEach(btn=>btn.addEventListener('pointerdown',()=>{const a=btn.dataset.action;if(a==='like')attack(100,'❤️ LIKE BURST',.65,0xff2d95);if(a==='small')attack(220,'🎁 GIFT STRIKE',1,0x00e5ff);if(a==='medium')attack(500,'💣 BOMB',1.35,0xff7a18);if(a==='large')attack(1100,'☄️ METEOR',1.85,0xa74cff);if(a==='huge')attack(2600,'💥 CATACLYSM',2.7,0xffffff)}));
+    $('auto').addEventListener('pointerdown',()=>{auto=!auto;ui.auto.textContent=`🤖 Auto: ${auto?'ON':'OFF'}`;ui.auto.classList.toggle('on',auto)});
     $('reset').addEventListener('pointerdown',()=>build(level));
-    $('quality').addEventListener('pointerdown',()=>{qualityIndex=(qualityIndex+1)%qualityModes.length; setQuality(); build(level);});
+    $('quality').addEventListener('pointerdown',()=>{qualityIndex=(qualityIndex+1)%qualityModes.length;setQuality();build(level)});
 
-    let last=performance.now(), angle=0, autoClock=0, fpsClock=0, frames=0;
+    let last=performance.now(),angle=0,autoClock=0,fpsClock=0,frames=0,colorClock=0;
     function frame(now){
-      const dt=Math.min(.04,(now-last)/1000); last=now; frames++; fpsClock+=dt; autoClock+=dt;
-      if(auto && autoClock>.46){autoClock=0; const r=Math.random(); if(r<.72) attack(35+((Math.random()*90)|0),'❤️ LIVE LIKES'); else if(r<.9) attack(180,'🎁 VIEWER GIFT'); else attack(620,'☄️ BIG GIFT');}
-      processQueue();
-      angle+=dt*.09; const radius=Math.max(W,D)*1.8; camera.position.x=Math.cos(angle)*radius; camera.position.z=Math.sin(angle)*radius; camera.position.y=H*.82+Math.sin(angle*1.7)*2.1; camera.lookAt(0,.4,0);
-      renderer.render(scene,camera);
-      if(fpsClock>1){ui.fps.textContent=`${Math.round(frames/fpsClock)} FPS`; fpsClock=0; frames=0;}
-      requestAnimationFrame(frame);
+      const dt=Math.min(.04,(now-last)/1000);last=now;frames++;fpsClock+=dt;autoClock+=dt;colorClock+=dt;
+      if(auto&&autoClock>.48){autoClock=0;const r=Math.random();if(r<.72)attack(35+(Math.random()*90|0),'❤️ LIVE LIKES',.45,0xff2d95);else if(r<.91)attack(180,'🎁 VIEWER GIFT',.9,0x00e5ff);else attack(620,'☄️ BIG GIFT',1.55,0xa74cff)}
+      if(combo&&now-lastAttackAt>2800)combo=0;processQueue();
+
+      if(boxes&&colorClock>.125){
+        colorClock=0;const t=now*.00018;
+        for(let i=0;i<total;i++){
+          if(!states[i])continue;const p=positions[i],wave=Math.sin(p[1]*.72+p[0]*.16-p[2]*.21+now*.0032);
+          if(states[i]===2)tempColor.setHSL(.13,.98,.57+.12*(wave*.5+.5));
+          else if(states[i]===3)tempColor.setHSL(.97,.98,.50+.14*(wave*.5+.5));
+          else tempColor.setHSL((baseHue[i]+t+.028*wave)%1,.96,Math.min(.75,baseLight[i]+.09*wave));
+          boxes.setColorAt(i,tempColor);
+        }
+        boxes.instanceColor.needsUpdate=true;
+      }
+
+      angle+=dt*(.075+pulsePower*.015);const breathe=1+Math.sin(now*.00072)*.035,radius=Math.max(W,D)*1.82*breathe;cameraKick*=Math.pow(.055,dt);const shake=cameraKick*(Math.random()-.5)*2.1;
+      camera.position.x=Math.cos(angle)*radius+shake;camera.position.z=Math.sin(angle)*radius-shake;camera.position.y=H*.82+Math.sin(angle*1.65)*2.2+Math.sin(now*.0011)*.55+shake*.35;camera.lookAt(0,.35+Math.sin(now*.0015)*.18,0);
+      stars.rotation.y+=dt*.014;stars.rotation.x=Math.sin(now*.00011)*.08;
+      halos.forEach((h,i)=>{h.rotation.z+=dt*(.09+i*.035);h.rotation.y+=dt*(i%2?.025:-.018);const s=1+Math.sin(now*.0012+i*2.2)*.035+pulsePower*.018;h.scale.setScalar(s);h.material.opacity=.20+.10*(Math.sin(now*.0014+i)+1)/2+Math.min(.2,pulsePower*.05)});
+
+      for(let i=shockwaves.length-1;i>=0;i--){const w=shockwaves[i];w.life+=dt;const k=w.life/w.max,s=1+w.life*w.speed;w.mesh.scale.setScalar(s);w.mesh.material.opacity=(1-k)*.82;if(w.life>=w.max){scene.remove(w.mesh);w.mesh.geometry.dispose();w.mesh.material.dispose();shockwaves.splice(i,1)}}
+      for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.life+=dt;s.v.y-=4.5*dt;s.m.position.addScaledVector(s.v,dt);s.m.material.opacity=Math.max(0,1-s.life/s.max);s.m.scale.setScalar(1+s.life*2);if(s.life>=s.max){scene.remove(s.m);s.m.geometry.dispose();s.m.material.dispose();sparks.splice(i,1)}}
+
+      pulsePower*=Math.pow(.20,dt);updateHud();renderer.render(scene,camera);
+      if(fpsClock>1){ui.fps.textContent=`${Math.round(frames/fpsClock)} FPS`;fpsClock=0;frames=0}requestAnimationFrame(frame);
     }
 
-    addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();setQuality();});
-    addEventListener('visibilitychange',()=>{last=performance.now();});
-
-    window.LiveBoxBreaker={
-      likes:(count=1,user='viewer')=>attack(Math.max(1,count),`❤️ ${user}`),
-      gift:(coins=1,user='viewer')=>attack(Math.max(30,coins*2),`🎁 ${user}`),
-      reset:()=>build(level),
-      stats:()=>({world:level,total,alive,destroyed,queued:queue.reduce((n,a)=>n+a.damage,0),frenzy:performance.now()<frenzyUntil})
-    };
-
-    build(1); requestAnimationFrame(frame);
+    addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();setQuality()});addEventListener('visibilitychange',()=>{last=performance.now()});
+    window.LiveBoxBreaker={likes:(count=1,user='viewer')=>attack(Math.max(1,count),`❤️ ${user}`,.6,0xff2d95),gift:(coins=1,user='viewer')=>attack(Math.max(30,coins*2),`🎁 ${user}`,Math.min(2.7,.7+coins/700),0x00e5ff),reset:()=>build(level),stats:()=>({world:level,total,alive,destroyed,combo,queued:queue.reduce((n,a)=>n+a.damage,0),frenzy:performance.now()<frenzyUntil})};
+    build(1);requestAnimationFrame(frame);
   </script>
 </body>
 </html>
